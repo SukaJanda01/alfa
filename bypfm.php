@@ -18,6 +18,8 @@ if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
         if ($username == $valid_username && $password == $valid_password) {
             $_SESSION['logged_in'] = true;
             $_SESSION['username'] = $username;
+            header("Location: filemanager.php"); // Redirect setelah login
+            exit();
         } else {
             $error_message = 'Invalid username or password!';
         }
@@ -142,6 +144,8 @@ if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
         .edit-form textarea { width: 100%; height: 300px; }
         .search-form input { padding: 8px; width: 200px; }
         .info { background-color: #f9f9f9; padding: 10px; margin-top: 20px; border: 1px solid #ddd; }
+        .directory-link { color: #4CAF50; text-decoration: none; }
+        .directory-link:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -196,7 +200,14 @@ if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
                 <tbody>
                     <?php foreach ($files as $file): ?>
                         <tr>
-                            <td><a href="filemanager.php?dir=<?php echo urlencode($current_dir . '/' . $file); ?>"><?php echo $file; ?></a></td>
+                            <td>
+                                <?php if (is_dir($current_dir . '/' . $file)): ?>
+                                    <!-- Link ke direktori yang dapat diklik -->
+                                    <a href="filemanager.php?dir=<?php echo urlencode($current_dir . '/' . $file); ?>" class="directory-link"><?php echo $file; ?></a>
+                                <?php else: ?>
+                                    <?php echo $file; ?>
+                                <?php endif; ?>
+                            </td>
                             <td>
                                 <a href="filemanager.php?delete_file=<?php echo urlencode($current_dir . '/' . $file); ?>">Delete</a>
                                 <a href="filemanager.php?dir=<?php echo urlencode($current_dir); ?>&edit_file=<?php echo urlencode($current_dir . '/' . $file); ?>">Edit</a>
